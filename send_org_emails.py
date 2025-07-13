@@ -59,76 +59,22 @@ def get_email_list():
         if len(row) > 2:
             contacted_emails.add(row[2].strip())
 
-    # Filter out emails already contacted and those with PTA/PTSA in the name
+    # Filter out emails already contacted and those with stop words in the name
+    stop_words = [
+        "pta", "ptsa", "sport", "soccer", "festival", "russian", "hindu", "christian", "jewish",
+        "ball", "school", "booster", "grange", "tennis", "farm", "teacher", "pto", "derby", "china",
+        "friend", "sanctuary", "lake", "kiwanis", "bbb", "city", "guild", "alliance", "ministry",
+        "ministries", "society", "histor", "nnana", "hs", "bbq", "club", "choir", "trust", "pony",
+        "horse", "scout", "church", "temple", "meditation", "center", "academy", "prayer", "heal",
+        "christ", "foundation", "linux", "evangel", "ministr", "theater", "pentecostal", "holy",
+        "college"
+    ]
     filtered_emails = []
     filtered_names = []
     for name, email in zip(charity_names, email_list):
         if (
             email not in contacted_emails
-            and "pta" not in name.lower()
-            and "ptsa" not in name.lower()
-            and "sport" not in name.lower()
-            and "soccer" not in name.lower()
-            and "festival" not in name.lower()
-            and "russian" not in name.lower()
-            and "hindu" not in name.lower()
-            and "christian" not in name.lower()
-            and "jewish" not in name.lower()
-            and "ball" not in name.lower()
-            and "school" not in name.lower()
-            and "booster" not in name.lower()
-            and "grange" not in name.lower()
-            and "tennis" not in name.lower()
-            and "farm" not in name.lower()
-            and "teacher" not in name.lower()
-            and "pto" not in name.lower()
-            and "derby" not in name.lower()
-            and "china" not in name.lower()
-            and "friend" not in name.lower()
-            and "sanctuary" not in name.lower()
-            and "lake" not in name.lower()
-            and "kiwanis" not in name.lower()
-            and "bbb" not in name.lower()
-            and "city" not in name.lower()
-            and "guild" not in name.lower()
-            and "sport" not in name.lower()
-            and "alliance" not in name.lower()
-            and "ministry" not in name.lower()
-            and "ministries" not in name.lower()
-            and "society" not in name.lower()
-            and "histor" not in name.lower()
-            and "nnana" not in name.lower()
-            and "hs" not in name.lower()
-            and "bbq" not in name.lower()
-            and "club" not in name.lower()
-            and "choir" not in name.lower()
-            and "trust" not in name.lower()
-            and "pony" not in name.lower()
-            and "horse" not in name.lower()
-            and "scout" not in name.lower()
-            and "church" not in name.lower()
-            and "temple" not in name.lower()
-            and "meditation" not in name.lower()
-            and "center" not in name.lower()
-            and "academy" not in name.lower()
-            and "prayer" not in name.lower()
-            and "heal" not in name.lower()
-            and "christ" not in name.lower()
-            and "foundation" not in name.lower()
-            and "sport" not in name.lower()
-            and "christ" not in name.lower()
-            and "linux" not in name.lower()
-            and "evangel" not in name.lower()
-            and "ministr" not in name.lower()
-            and "theater" not in name.lower()
-            and "academy" not in name.lower()
-            and "pentecostal" not in name.lower()
-            and "holy" not in name.lower()
-            and "festival" not in name.lower()
-            and "college" not in name.lower()
-            and "linux" not in name.lower()
-            and "theater" not in name.lower()
-            and "linux" not in name.lower()
+            and not any(word in name.lower() for word in stop_words)
         ):
             filtered_emails.append(email)
             filtered_names.append(name)
@@ -192,5 +138,13 @@ if __name__ == "__main__":
             print(f"Sent to {email}. Waiting {DELAY_BETWEEN_EMAILS // 60} minutes before next send.")
         except:
             print(f'It failed on {email}')
+            time.sleep(DELAY_BETWEEN_EMAILS)
+        time.sleep(DELAY_BETWEEN_EMAILS)
+        try:
+            send_email(email, html_body, ATTACHMENT_FILE)
+            log_outreach(name, email)
+            print(f"Sent to {email}. Waiting {DELAY_BETWEEN_EMAILS // 60} minutes before next send.")
+        except Exception as e:
+            print(f'It failed on {email}: {e}')
             time.sleep(DELAY_BETWEEN_EMAILS)
         time.sleep(DELAY_BETWEEN_EMAILS)
