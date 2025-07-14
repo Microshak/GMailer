@@ -67,7 +67,9 @@ def get_email_list():
         "ministries", "society", "histor", "nnana", "hs", "bbq", "club", "choir", "trust", "pony",
         "horse", "scout", "church", "temple", "meditation", "center", "academy", "prayer", "heal",
         "christ", "foundation", "linux", "evangel", "ministr", "theater", "pentecostal", "holy",
-        "college"
+        "college", "nieghborhood", "council", "home", "chorale", "cities","P.T.A.", "P.T.S.A.","riding",
+        "dance", "parent", "lutheran", "lutheran", "baptist", "catholic", "evangelical","music", "police",
+        "fire", "faith"
     ]
     filtered_emails = []
     filtered_names = []
@@ -78,7 +80,7 @@ def get_email_list():
         ):
             filtered_emails.append(email)
             filtered_names.append(name)
-    print(f"Filtered {len(email_list) - len(filtered_emails)} emails based on criteria.")
+    print(f"{len(filtered_emails)} emails based on criteria.")
     return filtered_names, filtered_emails
 
 def send_email(to_email, html_body, attachment_path):
@@ -140,11 +142,5 @@ if __name__ == "__main__":
             print(f'It failed on {email}')
             time.sleep(DELAY_BETWEEN_EMAILS)
         time.sleep(DELAY_BETWEEN_EMAILS)
-        try:
-            send_email(email, html_body, ATTACHMENT_FILE)
-            log_outreach(name, email)
-            print(f"Sent to {email}. Waiting {DELAY_BETWEEN_EMAILS // 60} minutes before next send.")
-        except Exception as e:
-            print(f'It failed on {email}: {e}')
-            time.sleep(DELAY_BETWEEN_EMAILS)
-        time.sleep(DELAY_BETWEEN_EMAILS)
+        
+        
