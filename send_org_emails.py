@@ -24,11 +24,15 @@ GOOGLE_SHEET_URL = os.getenv("GOOGLE_SHEET_URL")
 GOOGLE_SHEET_NAME = os.getenv("GOOGLE_SHEET_NAME")
 OUTREACH_TRACKING_TAB = os.getenv("OUTREACH_TRACKING_TAB")
 EMAIL_SUBJECT = os.getenv("EMAIL_SUBJECT")
-EMAIL_HTML_FILE = os.getenv("EMAIL_HTML_FILE")
-ATTACHMENT_FILE = os.getenv("ATTACHMENT_FILE")
+EMAIL_HTML_FILE = f'./email/{os.getenv("EMAIL_HTML_FILE")}'
+# If ATTACHMENT_FILE env var is empty or unset, make ATTACHMENT_FILE an empty string
+_attachment_file_env = os.getenv("ATTACHMENT_FILE", "").strip()
+ATTACHMENT_FILE = f'./assets/{_attachment_file_env}' if _attachment_file_env else ""
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
-DELAY_BETWEEN_EMAILS = int(os.getenv("DELAY_BETWEEN_EMAILS", "1200"))
+FILTER = os.getenv("FILTER", "TRUE")
+DELAY_BETWEEN_EMAILS = int(os.getenv("DELAY_BETWEEN_EMAILS", "300"))
+
 SERVICE_ACCOUNT_FILE = os.getenv("SERVICE_ACCOUNT_FILE")
 
 def get_gspread_client():
@@ -41,13 +45,19 @@ def get_email_list():
     charities_ws = sh.worksheet(GOOGLE_SHEET_NAME)
     outreach_ws = sh.worksheet(OUTREACH_TRACKING_TAB)
 
-    # Get all email addresses from Filtered Charities, column F (index 6)
     charities_data = charities_ws.get_all_values()
+    header = charities_data[0]
+    try:
+        email_idx = header.index("Email")
+        name_idx = header.index("Name")  # Change "Name" if your name column header is different
+    except ValueError as e:
+        raise Exception("Required column not found in header: " + str(e))
+
     email_list = []
     charity_names = []
     for row in charities_data[1:]:  # Skip header
-        email = row[5].strip() if len(row) > 5 else ""
-        name = row[1].strip() if len(row) > 1 else ""
+        email = row[email_idx].strip() if len(row) > email_idx else ""
+        name = row[name_idx].strip() if len(row) > name_idx else ""
         if email:
             email_list.append(email)
             charity_names.append(name)
@@ -59,7 +69,6 @@ def get_email_list():
         if len(row) > 2:
             contacted_emails.add(row[2].strip())
 
-    # Filter out emails already contacted and those with stop words in the name
     stop_words = [
         "pta", "ptsa", "sport", "soccer", "festival", "russian", "hindu", "christian", "jewish",
         "ball", "school", "booster", "grange", "tennis", "farm", "teacher", "pto", "derby", "china",
@@ -71,8 +80,19 @@ def get_email_list():
         "dance", "parent", "lutheran", "lutheran", "baptist", "catholic", "evangelical","music", "police",
         "fire", "faith"
     ]
+
     filtered_emails = []
     filtered_names = []
+
+    if FILTER.upper() == "FALSE":
+        # Only filter out already-contacted emails, not stop words
+        for name, email in zip(charity_names, email_list):
+            if email not in contacted_emails:
+                filtered_emails.append(email)
+                filtered_names.append(name)
+        print(f"{len(filtered_emails)} emails (filtered only by outreach log).")
+        return filtered_names, filtered_emails
+
     for name, email in zip(charity_names, email_list):
         if (
             email not in contacted_emails
@@ -92,7 +112,7 @@ def send_email(to_email, html_body, attachment_path):
     msg.add_alternative(html_body, subtype="html")
 
     # Attach sgc.png inline
-    with open("sgc.png", "rb") as img:
+    with open("./assets/sgc.png", "rb") as img:
         img_data = img.read()
         msg.get_payload()[1].add_related(
             img_data,
@@ -101,14 +121,19 @@ def send_email(to_email, html_body, attachment_path):
             cid="sgc.png"
         )
 
-    if attachment_path not in [None, ""]:
-        if attachment_path:
+    # Only attach when a valid file path is provided and exists
+    if attachment_path:
+        if os.path.isfile(attachment_path):
             ctype, encoding = mimetypes.guess_type(attachment_path)
             if ctype is None or encoding is not None:
                 ctype = "application/octet-stream"
             maintype, subtype = ctype.split("/", 1)
             with open(attachment_path, "rb") as f:
-                msg.add_attachment(f.read(), maintype=maintype, subtype=subtype, filename=attachment_path)
+                # Attach with the base filename, not the full path
+                filename = os.path.basename(attachment_path)
+                msg.add_attachment(f.read(), maintype=maintype, subtype=subtype, filename=filename)
+        else:
+            print(f"Attachment path '{attachment_path}' does not exist or is not a file; skipping attachment.")
 
     # Send email via Gmail SMTP
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
@@ -121,6 +146,7 @@ def log_outreach(name, email):
     sh = gc.open_by_url(GOOGLE_SHEET_URL)
     outreach_ws = sh.worksheet(OUTREACH_TRACKING_TAB)
     outreach_ws.append_row([name, "Mike", email])
+    print(f"Logged outreach for {name} ({email})")
 
 if __name__ == "__main__":
     # Step 1: Gather emails
@@ -138,9 +164,12 @@ if __name__ == "__main__":
             send_email(email, html_body, ATTACHMENT_FILE)
             log_outreach(name, email)
             print(f"Sent to {email}. Waiting {DELAY_BETWEEN_EMAILS // 60} minutes before next send.")
-        except:
-            print(f'It failed on {email}')
+            
             time.sleep(DELAY_BETWEEN_EMAILS)
-        time.sleep(DELAY_BETWEEN_EMAILS)
-        
-        
+
+        except Exception as err:
+            print(f'It failed on {email}: {err}')
+            time.sleep(DELAY_BETWEEN_EMAILS)
+            print(DELAY_BETWEEN_EMAILS)
+
+
